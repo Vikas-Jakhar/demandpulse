@@ -1,0 +1,113 @@
+// DemandPulse — Prisma Schema
+// Postgres is assumed in production; swap provider for local sqlite in dev if needed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  VIEWER
+  ANALYST
+  ADMIN
+}
+
+enum DateFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users    User[]
+  datasets Dataset[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(VIEWER)
+  isGuest      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  lastLoginAt  DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  datasets     Dataset[]     @relation("UploadedBy")
+  forecastRuns ForecastRun[] @relation("RequestedBy")
+
+  @@index([organizationId])
+}
+
+model Dataset {
+  id               String        @id @default(cuid())
+  name             String
+  frequency        DateFrequency
+  columnMappingRaw Json // ColumnMapping serialized
+  cleaningReportRaw Json // CleaningReport serialized
+  rowCount         Int
+  seriesKeys       String[] // distinct SKU/category keys present
+  storageUrl       String? // pointer to blob storage (S3/GCS) for raw file
+  createdAt        DateTime      @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+
+  uploadedBy   User   @relation("UploadedBy", fields: [uploadedById], references: [id])
+  uploadedById String
+
+  points       DatasetPoint[]
+  forecastRuns ForecastRun[]
+
+  @@index([organizationId])
+  @@index([uploadedById])
+}
+
+// Long-format time series storage: one row per (date, seriesKey).
+// Indexed for range scans per series — the hot path for forecasting reads.
+model DatasetPoint {
+  id           String   @id @default(cuid())
+  date         DateTime
+  value        Float
+  seriesKey    String
+  regressors   Json? // { promo: 1, price: 12.99, holiday: 0, ... }
+  isImputed    Boolean  @default(false)
+  isOutlier    Boolean  @default(false)
+
+  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  datasetId String
+
+  @@index([datasetId, seriesKey, date])
+}
+
+model ForecastRun {
+  id              String   @id @default(cuid())
+  seriesKey       String
+  createdAt       DateTime @default(now())
+  requestRaw      Json // ForecastRequest
+  paramsRaw       Json // HoltWintersParams (fitted alpha/beta/gamma)
+  pointsRaw       Json // ForecastPoint[]
+  decompositionRaw Json // Decomposition[]
+  metricsRaw      Json // ErrorMetrics
+  safetyStockRaw  Json // SafetyStockResult
+
+  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  datasetId String
+
+  requestedBy   User   @relation("RequestedBy", fields: [requestedById], references: [id])
+  requestedById String
+
+  @@index([datasetId, seriesKey])
+  @@index([requestedById])
+}

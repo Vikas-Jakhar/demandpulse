@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-canvas text-ink antialiased;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+}
+
+::selection {
+  background-color: #F5A62333;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #232A34 transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #232A34;
+  border-radius: 4px;
+}
