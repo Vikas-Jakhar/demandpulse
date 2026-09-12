@@ -1,0 +1,48 @@
+# Local dev/testing stack: the app + a real Postgres instance, so
+# `docker compose up` gets you the same database engine production runs
+# against without needing Postgres installed on the host. Not intended as
+# the production deployment topology itself — a real deploy should point
+# DATABASE_URL at a managed Postgres instance (RDS, Neon, Supabase, etc.)
+# rather than a container that loses its data on volume removal.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: demandpulse
+      POSTGRES_PASSWORD: demandpulse
+      POSTGRES_DB: demandpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - demandpulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demandpulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://demandpulse:demandpulse@db:5432/demandpulse
+      SESSION_SECRET: ${SESSION_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  demandpulse_pgdata:

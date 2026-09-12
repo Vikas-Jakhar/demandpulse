@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { CopilotContext } from "@/types";
-import { getCurrentSession } from "@/lib/auth/session";
+import { requireUser, toUnauthorizedResponse } from "@/lib/auth/require-user";
 import { buildCopilotSystemPrompt } from "@/lib/ai/context";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -15,13 +16,20 @@ interface CopilotRequestBody {
  * The grounding logic itself — including the "champion only, benchmarks on
  * request" instruction — lives in lib/ai/context.ts so the dashboard client
  * and this route build the exact same context shape via buildCopilotContext.
- * This route's job is just: auth check, call the model, return the reply.
+ * This route's job is just: auth check, rate limit, call the model, return
+ * the reply. Rate limited more tightly than most routes since every call
+ * here is a paid Anthropic API request.
  */
 export async function POST(req: NextRequest) {
-  const session = await getCurrentSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let session;
+  try {
+    session = await requireUser();
+  } catch (err) {
+    return toUnauthorizedResponse(err)!;
   }
+
+  const limited = enforceRateLimit("copilot", session.sub);
+  if (limited) return limited;
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(

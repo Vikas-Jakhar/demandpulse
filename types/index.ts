@@ -2,22 +2,22 @@
 // DemandPulse — Core Domain Types
 // ─────────────────────────────────────────────────────────────────────────
 
-export type Role = "VIEWER" | "ANALYST" | "ADMIN";
-
+// Note: role/organization fields were dropped from this type when the
+// Prisma schema moved to a leaner single-tenant User model (Phase 1). The
+// previous Viewer/Analyst/Admin gating on the dashboard is now a simple
+// `isGuest` check instead — reintroduce a Role enum on both sides together
+// if/when multi-tenant RBAC becomes a real requirement.
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: Role;
-  orgId: string;
   isGuest?: boolean;
 }
 
 export interface SessionPayload {
   sub: string;
   email: string;
-  role: Role;
-  orgId: string;
+  name: string;
   isGuest?: boolean;
   exp: number;
 }
@@ -165,9 +165,10 @@ export interface ForecastRun {
 // ever consumed by the diagnostics drawer (and, if asked, the copilot).
 
 export type CandidateModelId =
+  | "NAIVE"
+  | "MOVING_AVERAGE"
   | "HOLT_WINTERS_ADDITIVE"
   | "HOLT_WINTERS_MULTIPLICATIVE"
-  | "SEASONAL_MOVING_AVERAGE"
   | "LINEAR_TREND_BASELINE"; // stand-in slot for an external Prophet/Auto-ARIMA microservice call
 
 export interface CandidateModelMeta {
@@ -176,9 +177,10 @@ export interface CandidateModelMeta {
 }
 
 export const CANDIDATE_MODEL_REGISTRY: Record<CandidateModelId, CandidateModelMeta> = {
+  NAIVE: { id: "NAIVE", displayName: "Seasonal Naive" },
+  MOVING_AVERAGE: { id: "MOVING_AVERAGE", displayName: "Seasonal Weighted Moving Average" },
   HOLT_WINTERS_ADDITIVE: { id: "HOLT_WINTERS_ADDITIVE", displayName: "Triple Exponential (Additive)" },
   HOLT_WINTERS_MULTIPLICATIVE: { id: "HOLT_WINTERS_MULTIPLICATIVE", displayName: "Triple Exponential (Seasonal)" },
-  SEASONAL_MOVING_AVERAGE: { id: "SEASONAL_MOVING_AVERAGE", displayName: "Seasonal Weighted Moving Average" },
   LINEAR_TREND_BASELINE: { id: "LINEAR_TREND_BASELINE", displayName: "Linear Trend Baseline" },
 };
 

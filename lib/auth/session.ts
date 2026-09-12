@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import type { AuthUser, SessionPayload, Role } from "@/types";
+import type { AuthUser, SessionPayload } from "@/types";
 
 const SESSION_COOKIE = "demandpulse_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8; // 8 hours
@@ -15,13 +15,21 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+/**
+ * Sessions are stateless signed JWTs, not database-backed session rows.
+ * That's a deliberate tradeoff for this phase: it avoids a Session table
+ * and a lookup on every request, at the cost that a compromised token can't
+ * be revoked before it expires (8h TTL bounds the blast radius). If you
+ * need real revocation (force-logout-everywhere, admin-initiated logout),
+ * that's a Phase 2.5 addition: a `Session` model keyed by a token ID, checked
+ * here after the signature verifies.
+ */
 export async function createSession(user: AuthUser): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
   const token = await new SignJWT({
     sub: user.id,
     email: user.email,
-    role: user.role,
-    orgId: user.orgId,
+    name: user.name,
     isGuest: user.isGuest ?? false,
   } satisfies Omit<SessionPayload, "exp">)
     .setProtectedHeader({ alg: "HS256" })
@@ -34,9 +42,9 @@ export async function createSession(user: AuthUser): Promise<string> {
 
 export async function setSessionCookie(token: string) {
   cookies().set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    httpOnly: true, // inaccessible to client-side JS — the core XSS mitigation for session theft
+    secure: process.env.NODE_ENV === "production", // HTTPS-only in production
+    sameSite: "lax", // sent on top-level navigation, not on cross-site subrequests — mitigates CSRF
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   });
@@ -51,6 +59,8 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     const { payload } = await jwtVerify(token, getSecret());
     return payload as unknown as SessionPayload;
   } catch {
+    // Covers expired, malformed, and signature-mismatched tokens alike —
+    // all of them mean "treat this request as unauthenticated."
     return null;
   }
 }
@@ -62,9 +72,4 @@ export async function getCurrentSession(): Promise<SessionPayload | null> {
   return verifySessionToken(token);
 }
 
-export function hasRole(session: SessionPayload | null, allowed: Role[]): boolean {
-  if (!session) return false;
-  return allowed.includes(session.role);
-}
-
-export { SESSION_COOKIE };
+export { SESSION_COOKIE, SESSION_TTL_SECONDS };

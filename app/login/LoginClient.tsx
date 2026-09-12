@@ -7,7 +7,7 @@ import { Activity, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
-export default function LoginPage() {
+export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = React.useState("admin@demandpulse.io");
@@ -21,17 +21,21 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setError(data.error ?? "Login failed.");
         return;
       }
+
       router.push(redirectTo);
       router.refresh();
     } finally {
@@ -41,6 +45,7 @@ export default function LoginPage() {
 
   const handleGuest = async () => {
     setIsLoading(true);
+
     try {
       await fetch("/api/auth/guest", { method: "POST" });
       router.push("/dashboard");
@@ -61,12 +66,25 @@ export default function LoginPage() {
 
           <div>
             <h1 className="text-lg font-semibold text-ink">Sign in</h1>
-            <p className="text-xs text-ink-muted">Access your forecasting workspace.</p>
+            <p className="text-xs text-ink-muted">
+              Access your forecasting workspace.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <Field label="Email" type="email" value={email} onChange={setEmail} />
-            <Field label="Password" type="password" value={password} onChange={setPassword} />
+            <Field
+              label="Email"
+              type="email"
+              value={email}
+              onChange={setEmail}
+            />
+
+            <Field
+              label="Password"
+              type="password"
+              value={password}
+              onChange={setPassword}
+            />
 
             {error && (
               <div className="flex items-center gap-2 rounded border border-bad/30 bg-bad/10 p-2 text-xs text-bad">
@@ -75,7 +93,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" variant="signal" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              variant="signal"
+              className="w-full"
+              disabled={isLoading}
+            >
               {isLoading ? "Signing in…" : "Sign in"}
             </Button>
           </form>
@@ -86,7 +109,12 @@ export default function LoginPage() {
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <Button variant="outline" className="w-full" onClick={handleGuest} disabled={isLoading}>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleGuest}
+            disabled={isLoading}
+          >
             Continue as guest (demo mode)
           </Button>
 
@@ -94,6 +122,7 @@ export default function LoginPage() {
             <Link href="/signup" className="hover:text-ink">
               Create account
             </Link>
+
             <Link href="/forgot-password" className="hover:text-ink">
               Forgot password?
             </Link>
@@ -118,6 +147,7 @@ function Field({
   return (
     <label className="block space-y-1">
       <span className="text-xs text-ink-muted">{label}</span>
+
       <input
         type={type}
         value={value}

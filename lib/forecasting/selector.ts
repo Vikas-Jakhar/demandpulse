@@ -26,8 +26,10 @@ import { runBacktest, rankBenchmarks } from "./backtest";
 import { forecastHoltWinters } from "./holt-winters";
 import {
   fitLinearTrendInSample,
+  fitNaiveInSample,
   fitSeasonalMovingAverageInSample,
   runLinearTrendCandidate,
+  runNaiveCandidate,
   runSeasonalMovingAverageCandidate,
 } from "./candidates";
 import { computeErrorMetrics } from "./metrics";
@@ -103,7 +105,9 @@ function refitChampionOnFullData(
   // residual sigma, then project the horizon with the same widening-band
   // convention used everywhere else in the app.
   const fitted =
-    championId === "SEASONAL_MOVING_AVERAGE"
+    championId === "NAIVE"
+      ? fitNaiveInSample(values, seasonalPeriods)
+      : championId === "MOVING_AVERAGE"
       ? fitSeasonalMovingAverageInSample(values, seasonalPeriods)
       : fitLinearTrendInSample(values);
 
@@ -112,7 +116,9 @@ function refitChampionOnFullData(
   const metrics = computeErrorMetrics(values, fitted);
 
   const horizonValues =
-    championId === "SEASONAL_MOVING_AVERAGE"
+    championId === "NAIVE"
+      ? runNaiveCandidate(values, horizon, seasonalPeriods)
+      : championId === "MOVING_AVERAGE"
       ? runSeasonalMovingAverageCandidate(values, horizon, seasonalPeriods)
       : runLinearTrendCandidate(values, horizon);
 

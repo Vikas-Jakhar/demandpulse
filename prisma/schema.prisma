@@ -1,5 +1,24 @@
-// DemandPulse — Prisma Schema
-// Postgres is assumed in production; swap provider for local sqlite in dev if needed.
+// ─────────────────────────────────────────────────────────────────────────
+// DemandPulse — Prisma Schema (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────
+// PostgreSQL-backed persistence for Users, Datasets, and Forecasts.
+//
+// Design notes:
+// - Ownership is enforced at the schema level: every Dataset and Forecast
+//   carries a direct `userId` foreign key, not just an indirect one through
+//   Dataset. This means a Forecast row can be ownership-checked on its own
+//   without a join, which matters once /api routes need a fast "does this
+//   user own this resource" check on every request.
+// - `onDelete: Cascade` is used everywhere a child row is meaningless
+//   without its parent (delete a Dataset → its rows and forecasts go with
+//   it; delete a Forecast → its points go with it). Deleting a User cascades
+//   to everything they own. This keeps the DB consistent without relying on
+//   application code to clean up after itself.
+// - DatasetRow is intentionally a long/normalized table (one row per
+//   date+SKU+value) rather than a wide one, indexed on (datasetId, sku,
+//   date) — that's the exact access pattern the forecasting engine needs:
+//   "give me the ordered time series for SKU X in dataset Y."
+// ─────────────────────────────────────────────────────────────────────────
 
 generator client {
   provider = "prisma-client-js"
@@ -10,104 +29,140 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  VIEWER
-  ANALYST
-  ADMIN
+// ── Enums ───────────────────────────────────────────────────────────────
+
+/// Which forecasting model produced a given Forecast — one of the five
+/// candidates the Champion Model pipeline backtests
+/// (lib/forecasting/candidates.ts). `selectedModel` always records the
+/// concrete winner — there's deliberately no "AUTO_SELECTED" value, because
+/// that would describe the *process* (backtest-and-pick) rather than the
+/// *result*, and the whole point of storing this column is knowing which
+/// algorithm actually produced the numbers in this Forecast without
+/// re-running the pipeline.
+enum ForecastModel {
+  NAIVE
+  MOVING_AVERAGE
+  HOLT_WINTERS_ADDITIVE
+  HOLT_WINTERS_MULTIPLICATIVE
+  LINEAR_TREND_BASELINE
 }
 
-enum DateFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
+enum ForecastStatus {
+  PENDING
+  COMPLETED
+  FAILED
 }
 
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-
-  users    User[]
-  datasets Dataset[]
-}
+// ── User ────────────────────────────────────────────────────────────────
 
 model User {
   id           String   @id @default(cuid())
   name         String
   email        String   @unique
   passwordHash String
-  role         Role     @default(VIEWER)
-  isGuest      Boolean  @default(false)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   lastLoginAt  DateTime?
 
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
+  datasets  Dataset[]
+  forecasts Forecast[]
 
-  datasets     Dataset[]     @relation("UploadedBy")
-  forecastRuns ForecastRun[] @relation("RequestedBy")
-
-  @@index([organizationId])
+  @@index([email])
 }
+
+// ── Dataset ─────────────────────────────────────────────────────────────
 
 model Dataset {
-  id               String        @id @default(cuid())
-  name             String
-  frequency        DateFrequency
-  columnMappingRaw Json // ColumnMapping serialized
-  cleaningReportRaw Json // CleaningReport serialized
-  rowCount         Int
-  seriesKeys       String[] // distinct SKU/category keys present
-  storageUrl       String? // pointer to blob storage (S3/GCS) for raw file
-  createdAt        DateTime      @default(now())
+  id        String   @id @default(cuid())
+  name      String // user-facing label, e.g. "Q3 Retail Demand"
+  fileName  String // original uploaded file name, for display/audit
+  rowCount  Int // denormalized count, avoids a COUNT(*) on every dashboard load
 
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
+  /// Auto-detected + user-confirmed column mapping from the ingestion step
+  /// (Phase 3): { dateColumn, targetColumn, skuColumn, regressorColumns }.
+  /// Stored as JSON because the shape is a small, UI-facing config object,
+  /// not something queried on — the rows it describes live in DatasetRow.
+  detectedColumns Json
 
-  uploadedBy   User   @relation("UploadedBy", fields: [uploadedById], references: [id])
-  uploadedById String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  points       DatasetPoint[]
-  forecastRuns ForecastRun[]
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
-  @@index([organizationId])
-  @@index([uploadedById])
+  rows      DatasetRow[]
+  forecasts Forecast[]
+
+  @@index([userId])
+  @@index([userId, createdAt])
 }
 
-// Long-format time series storage: one row per (date, seriesKey).
-// Indexed for range scans per series — the hot path for forecasting reads.
-model DatasetPoint {
-  id           String   @id @default(cuid())
-  date         DateTime
-  value        Float
-  seriesKey    String
-  regressors   Json? // { promo: 1, price: 12.99, holiday: 0, ... }
-  isImputed    Boolean  @default(false)
-  isOutlier    Boolean  @default(false)
+// ── DatasetRow ──────────────────────────────────────────────────────────
+// Long-format time series storage: one row per (date, sku). Indexed for the
+// exact range scan the forecasting engine performs — "ordered values for
+// SKU X in dataset Y" — rather than for arbitrary ad-hoc queries.
+
+model DatasetRow {
+  id     String   @id @default(cuid())
+  date   DateTime
+  sku    String
+  demand Float
 
   dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
   datasetId String
 
-  @@index([datasetId, seriesKey, date])
+  @@index([datasetId, sku, date])
 }
 
-model ForecastRun {
+// ── Forecast ────────────────────────────────────────────────────────────
+
+model Forecast {
+  id     String @id @default(cuid())
+  sku    String
+  horizon         Int // number of periods forecast forward
+  confidenceLevel Float @default(0.95) // e.g. 0.80 or 0.95, drives the CI band width
+
+  selectedModel ForecastModel
+  status        ForecastStatus @default(PENDING)
+
+  // Backtested accuracy metrics for the selected model (Phase 4/5/6).
+  mape Float?
+  rmse Float?
+  mae  Float?
+  wape Float?
+
+  // Inventory intelligence (Phase 7).
+  safetyStock  Float?
+  reorderPoint Float?
+  leadTimeDays Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  datasetId String
+
+  points ForecastPoint[]
+
+  @@index([userId])
+  @@index([datasetId, sku])
+  @@index([userId, createdAt])
+}
+
+// ── ForecastPoint ───────────────────────────────────────────────────────
+
+model ForecastPoint {
   id              String   @id @default(cuid())
-  seriesKey       String
-  createdAt       DateTime @default(now())
-  requestRaw      Json // ForecastRequest
-  paramsRaw       Json // HoltWintersParams (fitted alpha/beta/gamma)
-  pointsRaw       Json // ForecastPoint[]
-  decompositionRaw Json // Decomposition[]
-  metricsRaw      Json // ErrorMetrics
-  safetyStockRaw  Json // SafetyStockResult
+  date            DateTime
+  predictedDemand Float
+  lowerBound      Float
+  upperBound      Float
 
-  dataset   Dataset @relation(fields: [datasetId], references: [id], onDelete: Cascade)
-  datasetId String
+  forecast   Forecast @relation(fields: [forecastId], references: [id], onDelete: Cascade)
+  forecastId String
 
-  requestedBy   User   @relation("RequestedBy", fields: [requestedById], references: [id])
-  requestedById String
-
-  @@index([datasetId, seriesKey])
-  @@index([requestedById])
+  @@index([forecastId, date])
 }

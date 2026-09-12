@@ -1,23 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { Activity, LogOut, UploadCloud } from "lucide-react";
+import { Activity, LogOut, UploadCloud, History } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { generateMockDataset } from "@/lib/mock-data";
 import { FileUpload } from "@/components/ingestion/FileUpload";
+import { SavedDatasetsList } from "@/components/ingestion/SavedDatasetsList";
 import { KPICards } from "@/components/dashboard/KPICards";
 import { ForecastChart } from "@/components/dashboard/ForecastChart";
 import { ScenarioSlider } from "@/components/dashboard/ScenarioSlider";
-import { FilterBar } from "@/components/dashboard/FilterBar";
+import { FilterBar, type ExportFormat } from "@/components/dashboard/FilterBar";
 import { ModelDiagnostics } from "@/components/dashboard/ModelDiagnostics";
+import { ForecastHistoryDrawer } from "@/components/dashboard/ForecastHistoryDrawer";
 import { CopilotPanel } from "@/components/copilot/CopilotPanel";
 import { Button } from "@/components/ui/button";
 import { buildCopilotContext } from "@/lib/ai/context";
 import type { CopilotContext } from "@/types";
 
 interface DashboardClientProps {
-  role: string;
+  userName: string;
   isGuest: boolean;
 }
 
@@ -31,7 +33,7 @@ const SEASONAL_PERIODS_BY_FREQ = { DAILY: 7, WEEKLY: 52, MONTHLY: 12 } as const;
  * just a visual one: there's no path from here to a rendered comparison of
  * candidate models unless the user explicitly opens the drawer.
  */
-export function DashboardClient({ role, isGuest }: DashboardClientProps) {
+export function DashboardClient({ userName, isGuest }: DashboardClientProps) {
   const router = useRouter();
   const dataset = useAppStore((s) => s.dataset);
   const setDataset = useAppStore((s) => s.setDataset);
@@ -51,8 +53,11 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
   const setDiagnosticsOpen = useAppStore((s) => s.setDiagnosticsOpen);
 
   const [showUploader, setShowUploader] = React.useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
   const [band, setBand] = React.useState<"80" | "95" | "none">("80");
   const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [leadTimeDays, setLeadTimeDays] = React.useState(7);
+  const [lastForecastPersisted, setLastForecastPersisted] = React.useState(false);
 
   // Load demo data on first mount so the dashboard is never empty.
   React.useEffect(() => {
@@ -80,9 +85,11 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
           frequency: dataset.frequency,
           seasonalPeriods: SEASONAL_PERIODS_BY_FREQ[dataset.frequency],
           growthAdjustmentPct,
-          leadTimeDays: 7,
+          leadTimeDays,
           serviceLevel: 0.95,
           primaryMetric: "WAPE",
+          confidenceLevel: 0.95,
+          datasetId: dataset.id,
         }),
       });
 
@@ -94,29 +101,42 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
       const data = await res.json();
       setChampion(data.champion);
       setDiagnostics(data.diagnostics);
+      setLastForecastPersisted(Boolean(data.persisted));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Failed to compute forecast.");
     } finally {
       setIsForecasting(false);
     }
-  }, [dataset, activeSeriesKey, horizon, growthAdjustmentPct, setIsForecasting, setChampion, setDiagnostics]);
+  }, [dataset, activeSeriesKey, horizon, growthAdjustmentPct, leadTimeDays, setIsForecasting, setChampion, setDiagnostics]);
 
   React.useEffect(() => {
     runChampionPipeline();
   }, [runChampionPipeline]);
 
-  const handleExport = async () => {
+  const handleExport = async (format: ExportFormat) => {
     if (!champion?.points.length || !activeSeriesKey) return;
     const res = await fetch("/api/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ points: champion.points, format: "csv", seriesKey: activeSeriesKey }),
+      body: JSON.stringify({
+        points: champion.points,
+        format,
+        seriesKey: activeSeriesKey,
+        championDisplayName: champion.championDisplayName,
+        forecastReliabilityPct: champion.forecastReliabilityPct,
+        safetyStock: champion.safetyStock,
+      }),
     });
+    if (!res.ok) {
+      setFetchError("Export failed. Please try again.");
+      return;
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const extension = format === "xlsx" ? "xlsx" : format === "pdf" ? "pdf" : "csv";
     a.href = url;
-    a.download = `demandpulse_forecast_${activeSeriesKey}.csv`;
+    a.download = `demandpulse_forecast_${activeSeriesKey}.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -165,7 +185,13 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
             <UploadCloud className="h-3.5 w-3.5" />
             {showUploader ? "Hide uploader" : "Upload data"}
           </Button>
-          <span className="text-xs text-ink-faint">{role}</span>
+          {!isGuest && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setIsHistoryOpen(true)}>
+              <History className="h-3.5 w-3.5" />
+              History
+            </Button>
+          )}
+          <span className="text-xs text-ink-faint">{userName}</span>
           <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -173,7 +199,12 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 p-6">
-        {showUploader && <FileUpload />}
+        {showUploader && (
+          <div className="space-y-3">
+            <FileUpload isGuest={isGuest} />
+            {!isGuest && <SavedDatasetsList />}
+          </div>
+        )}
 
         {dataset && activeSeriesKey && (
           <>
@@ -185,10 +216,12 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
               onHorizonChange={setHorizon}
               band={band}
               onBandChange={setBand}
+              leadTimeDays={leadTimeDays}
+              onLeadTimeChange={setLeadTimeDays}
               onExport={handleExport}
             />
 
-            {role !== "VIEWER" && (
+            {!isGuest && (
               <ScenarioSlider value={growthAdjustmentPct} onChange={setGrowthAdjustmentPct} />
             )}
 
@@ -219,6 +252,11 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
             {isForecasting && (
               <p className="text-center text-xs text-ink-faint">Recomputing forecast…</p>
             )}
+            {!isForecasting && champion && !isGuest && (
+              <p className="text-center text-xs text-ink-faint">
+                {lastForecastPersisted ? "Saved to forecast history." : "Preview only — not saved to history."}
+              </p>
+            )}
           </>
         )}
       </main>
@@ -227,6 +265,12 @@ export function DashboardClient({ role, isGuest }: DashboardClientProps) {
         isOpen={isDiagnosticsOpen}
         onClose={() => setDiagnosticsOpen(false)}
         diagnostics={diagnostics}
+      />
+
+      <ForecastHistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        datasetId={dataset?.id ?? null}
       />
 
       <CopilotPanel buildContext={buildContext} />

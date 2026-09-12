@@ -11,20 +11,17 @@ const TARGET_HINTS = ["demand", "volume", "units", "sold", "qty", "quantity", "s
 const SERIES_KEY_HINTS = ["sku", "product", "item", "category", "store", "region"];
 const REGRESSOR_HINTS = ["promo", "price", "holiday", "stockout", "discount", "marketing", "event"];
 
-function looksLikeDate(value: string | number | null): boolean {
-  if (value === null) return false;
-
+function looksLikeDate(value: string | number): boolean {
   const s = String(value).trim();
   return DATE_PATTERNS.some((p) => p.test(s)) || !isNaN(Date.parse(s));
 }
 
-function looksNumeric(value: string | number | null): boolean {
-  if (value === null) return false;
+function looksNumeric(value: string | number): boolean {
   if (typeof value === "number") return true;
-
   const s = String(value).trim().replace(/,/g, "");
   return s !== "" && !isNaN(Number(s));
 }
+
 /**
  * Inspects up to `sampleSize` rows per column and infers its semantic type.
  * This drives the auto-mapping UI so a user rarely has to hand-pick columns.
@@ -42,8 +39,13 @@ export function detectColumns(rows: RawRow[], sampleSize = 25): DetectedColumn[]
       return { name, sampleValues: [], inferredType: "unknown", confidence: 0 };
     }
 
-    const dateHits = values.filter(looksLikeDate).length;
-    const numericHits = values.filter(looksNumeric).length;
+    const dateHits = values.filter(
+      (value) => value !== null && value !== "" && looksLikeDate(value)
+      ).length;
+
+    const numericHits = values.filter(
+      (value) => value !== null && value !== "" && looksNumeric(value)
+      ).length;
     const dateRatio = dateHits / values.length;
     const numericRatio = numericHits / values.length;
 

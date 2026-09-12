@@ -11,17 +11,22 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Production wiring: POST to /api/auth/forgot-password, which looks up the
-  // user by email, issues a short-lived signed reset token (same `jose`
-  // helper as session.ts), and emails a reset link. The response is
-  // intentionally identical whether or not the email exists, so this
-  // endpoint can't be used to enumerate registered accounts.
+  // Calls the real /api/auth/forgot-password route. Its response is
+  // intentionally identical whether or not the email exists (see the
+  // route's comment), so this handler never needs to branch on that.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 400));
-    setIsLoading(false);
-    setSubmitted(true);
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+    } finally {
+      setIsLoading(false);
+      setSubmitted(true);
+    }
   };
 
   return (

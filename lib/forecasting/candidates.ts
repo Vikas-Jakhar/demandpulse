@@ -45,6 +45,29 @@ export function runHoltWintersCandidate(
 }
 
 /**
+ * Seasonal Naive: forecasts each future point as whatever was observed at
+ * the same seasonal position one cycle back (falls back to the very last
+ * observed value if there's no prior cycle yet). This is deliberately the
+ * simplest candidate in the lineup — no fitting, no parameters — and it
+ * exists precisely because "the fancy model loses to doing nothing clever"
+ * is a real, useful outcome for a backtest to surface on a flat or heavily
+ * noise-dominated series. If Naive wins, that's the pipeline correctly
+ * telling you the data doesn't support anything more sophisticated yet.
+ */
+export function runNaiveCandidate(trainValues: number[], horizon: number, seasonalPeriods: number): number[] {
+  const m = Math.max(2, seasonalPeriods);
+  const lastValue = trainValues[trainValues.length - 1] ?? 0;
+
+  const forecasts: number[] = [];
+  for (let h = 1; h <= horizon; h++) {
+    const seasonsBack = Math.ceil(h / m) * m;
+    const idx = trainValues.length - seasonsBack + ((h - 1) % m);
+    forecasts.push(Math.max(0, idx >= 0 ? trainValues[idx] : lastValue));
+  }
+  return forecasts;
+}
+
+/**
  * Seasonal Weighted Moving Average: averages the same season-index position
  * across the most recent `cycles` seasonal cycles, weighting more recent
  * cycles more heavily. A deliberately simple, highly explainable baseline —
@@ -59,22 +82,30 @@ export function runSeasonalMovingAverageCandidate(
   cycles = 4
 ): number[] {
   const m = Math.max(2, seasonalPeriods);
+  const n = trainValues.length;
   const forecasts: number[] = [];
 
   for (let h = 1; h <= horizon; h++) {
-    const seasonIdx = (trainValues.length + h - 1) % m;
+    // Absolute index of the point being forecast, projected from the start
+    // of the training array. Walking back c*m from it lands on the same
+    // season position c cycles earlier — no separate seasonIdx/modulo
+    // wraparound needed, which is what the previous version got wrong: it
+    // computed idx via seasonIdx plus an extra unconditional "- m" offset,
+    // which shifted every sample one cycle further into the past than
+    // intended and inverted which cycle got the higher weight (c=1 landed
+    // on the *second*-most-recent cycle instead of the most recent one).
+    const target = n + h - 1;
     const samples: { value: number; weight: number }[] = [];
 
     for (let c = 1; c <= cycles; c++) {
-      const idx = trainValues.length - c * m + seasonIdx - m; // align to same season-of-cycle
-      const wrappedIdx = ((idx % trainValues.length) + trainValues.length) % trainValues.length;
-      if (wrappedIdx >= 0 && wrappedIdx < trainValues.length) {
-        samples.push({ value: trainValues[wrappedIdx], weight: cycles - c + 1 });
+      const idx = target - c * m;
+      if (idx >= 0 && idx < n) {
+        samples.push({ value: trainValues[idx], weight: cycles - c + 1 });
       }
     }
 
     if (samples.length === 0) {
-      const fallbackAvg = trainValues.reduce((a, b) => a + b, 0) / (trainValues.length || 1);
+      const fallbackAvg = trainValues.reduce((a, b) => a + b, 0) / (n || 1);
       forecasts.push(fallbackAvg);
       continue;
     }
@@ -115,6 +146,27 @@ export function runLinearTrendCandidate(trainValues: number[], horizon: number):
     forecasts.push(Math.max(0, intercept + slope * (n - 1 + h)));
   }
   return forecasts;
+}
+
+/**
+ * Causal in-sample fitted values for Seasonal Naive — at each point, uses
+ * whatever was observed one seasonal cycle earlier (falls back to a running
+ * mean before the first full cycle exists, same convention as the other
+ * candidates' in-sample fits).
+ */
+export function fitNaiveInSample(values: number[], seasonalPeriods: number): number[] {
+  const m = Math.max(2, seasonalPeriods);
+  const fitted: number[] = [];
+  for (let t = 0; t < values.length; t++) {
+    const idx = t - m;
+    if (idx >= 0) {
+      fitted.push(values[idx]);
+    } else {
+      const seen = values.slice(0, t);
+      fitted.push(seen.length ? seen.reduce((a, b) => a + b, 0) / seen.length : values[0] ?? 0);
+    }
+  }
+  return fitted;
 }
 
 /**
@@ -178,6 +230,10 @@ export function runAllCandidates(
 ): CandidateForecast[] {
   return [
     {
+      modelId: "NAIVE",
+      values: runNaiveCandidate(trainValues, horizon, seasonalPeriods),
+    },
+    {
       modelId: "HOLT_WINTERS_ADDITIVE",
       values: runHoltWintersCandidate(trainValues, horizon, seasonalPeriods, "ADDITIVE"),
     },
@@ -186,7 +242,7 @@ export function runAllCandidates(
       values: runHoltWintersCandidate(trainValues, horizon, seasonalPeriods, "MULTIPLICATIVE"),
     },
     {
-      modelId: "SEASONAL_MOVING_AVERAGE",
+      modelId: "MOVING_AVERAGE",
       values: runSeasonalMovingAverageCandidate(trainValues, horizon, seasonalPeriods),
     },
     {

@@ -1,52 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { prisma } from "@/lib/db/prisma";
+import { verifyPassword } from "@/lib/auth/password";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
 import type { AuthUser } from "@/types";
 
-// Demo-mode user store. Replace with a Prisma lookup against the User model
-// (see prisma/schema.prisma) once a database is provisioned:
-//   const user = await prisma.user.findUnique({ where: { email } })
-const DEMO_USERS: (AuthUser & { passwordHash: string })[] = [
-  {
-    id: "user_admin_1",
-    name: "Priya Shah",
-    email: "admin@demandpulse.io",
-    role: "ADMIN",
-    orgId: "org_demo",
-    // password: "demopass123"
-    passwordHash: "$2a$10$xX3VYFq1r8G7Zb8b3o1F0.4y6r2z1B9Q1z1a0S8oX2Yy8g5J7q0Vi",
-  },
-];
-
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email("Enter a valid email address."),
+  password: z.string().min(1, "Password is required."),
 });
 
 export async function POST(req: NextRequest) {
+  let body: z.infer<typeof loginSchema>;
   try {
-    const body = loginSchema.parse(await req.json());
-    const user = DEMO_USERS.find((u) => u.email.toLowerCase() === body.email.toLowerCase());
+    body = loginSchema.parse(await req.json());
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid input." }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
+
+    // Deliberately identical error and status for "no such user" and "wrong
+    // password" — a distinct "that email isn't registered" message lets an
+    // attacker enumerate which emails have accounts on the platform.
+    const invalidCredentials = () =>
+      NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
 
     if (!user) {
-      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+      return invalidCredentials();
     }
 
-    const valid = await bcrypt.compare(body.password, user.passwordHash);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    const passwordValid = await verifyPassword(body.password, user.passwordHash);
+    if (!passwordValid) {
+      return invalidCredentials();
     }
 
-    const { passwordHash: _drop, ...authUser } = user;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const authUser: AuthUser = { id: user.id, name: user.name, email: user.email };
     const token = await createSession(authUser);
     await setSessionCookie(token);
 
     return NextResponse.json({ user: authUser });
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Enter a valid email and password." }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Login failed." }, { status: 500 });
+    console.error("Login error:", err);
+    return NextResponse.json({ error: "Something went wrong. Please try again." }, { status: 500 });
   }
 }
