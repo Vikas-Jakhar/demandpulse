@@ -24,13 +24,17 @@ export async function POST(req: NextRequest) {
   try {
     const user = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } });
 
-    // Deliberately identical error and status for "no such user" and "wrong
-    // password" — a distinct "that email isn't registered" message lets an
-    // attacker enumerate which emails have accounts on the platform.
-    const invalidCredentials = () =>
-      NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    const invalidCredentials = (message = "Invalid email or password.") =>
+      NextResponse.json({ error: message }, { status: 401 });
 
     if (!user) {
+      return invalidCredentials();
+    }
+
+    if (!user.passwordHash) {
+      if (user.provider === "google") {
+        return invalidCredentials("This account uses Google Sign-In. Please click 'Continue with Google'.");
+      }
       return invalidCredentials();
     }
 
@@ -44,7 +48,15 @@ export async function POST(req: NextRequest) {
       data: { lastLoginAt: new Date() },
     });
 
-    const authUser: AuthUser = { id: user.id, name: user.name, email: user.email };
+    const authUser: AuthUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: !!user.emailVerified,
+      provider: user.provider,
+      image: user.image,
+    };
+
     const token = await createSession(authUser);
     await setSessionCookie(token);
 

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Activity, LogOut, UploadCloud, History } from "lucide-react";
+import { Activity, LogOut, UploadCloud, History, AlertCircle } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store/useAppStore";
 import { generateMockDataset } from "@/lib/mock-data";
@@ -21,6 +22,8 @@ import type { CopilotContext } from "@/types";
 interface DashboardClientProps {
   userName: string;
   isGuest: boolean;
+  emailVerified?: boolean;
+  image?: string | null;
 }
 
 const SEASONAL_PERIODS_BY_FREQ = { DAILY: 7, WEEKLY: 52, MONTHLY: 12 } as const;
@@ -33,7 +36,7 @@ const SEASONAL_PERIODS_BY_FREQ = { DAILY: 7, WEEKLY: 52, MONTHLY: 12 } as const;
  * just a visual one: there's no path from here to a rendered comparison of
  * candidate models unless the user explicitly opens the drawer.
  */
-export function DashboardClient({ userName, isGuest }: DashboardClientProps) {
+export function DashboardClient({ userName, isGuest, emailVerified, image }: DashboardClientProps) {
   const router = useRouter();
   const dataset = useAppStore((s) => s.dataset);
   const setDataset = useAppStore((s) => s.setDataset);
@@ -191,12 +194,38 @@ export function DashboardClient({ userName, isGuest }: DashboardClientProps) {
               History
             </Button>
           )}
-          <span className="text-xs text-ink-faint">{userName}</span>
+          <div className="flex items-center gap-1.5 pl-1">
+            {image && (
+              <img
+                src={image}
+                alt={userName}
+                className="h-6 w-6 rounded-full border border-border object-cover"
+              />
+            )}
+            <span className="text-xs text-ink-faint">{userName}</span>
+          </div>
           <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </header>
+
+      {!isGuest && !emailVerified && (
+        <div className="bg-warn/10 border-b border-warn/25 px-6 py-2 flex items-center justify-between text-xs text-warn">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Your email address is unverified. Please confirm your email to ensure account recovery and full system access.
+            </span>
+          </div>
+          <Link
+            href="/verify-email"
+            className="underline font-mono text-[11px] hover:text-ink transition-colors"
+          >
+            Verify Email →
+          </Link>
+        </div>
+      )}
 
       <main className="mx-auto max-w-7xl space-y-4 p-6">
         {showUploader && (

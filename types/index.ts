@@ -12,6 +12,9 @@ export interface AuthUser {
   name: string;
   email: string;
   isGuest?: boolean;
+  emailVerified?: boolean;
+  provider?: string;
+  image?: string | null;
 }
 
 export interface SessionPayload {
@@ -19,6 +22,9 @@ export interface SessionPayload {
   email: string;
   name: string;
   isGuest?: boolean;
+  emailVerified?: boolean;
+  provider?: string;
+  image?: string | null;
   exp: number;
 }
 

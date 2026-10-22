@@ -4,6 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword, validatePasswordStrength } from "@/lib/auth/password";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { createVerificationToken } from "@/lib/auth/verification-token";
+import { sendVerificationEmail } from "@/lib/email/send-verification-email";
 import type { AuthUser } from "@/types";
 
 const signupSchema = z.object({
@@ -36,20 +38,34 @@ export async function POST(req: NextRequest) {
         name: body.name,
         email: body.email,
         passwordHash,
+        provider: "credentials",
+        lastLoginAt: new Date(),
       },
     });
 
-    const authUser: AuthUser = { id: user.id, name: user.name, email: user.email };
+    // Create email verification token and send email
+    try {
+      const vToken = await createVerificationToken(user.email);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+      const verifyUrl = `${appUrl}/verify-email?token=${encodeURIComponent(vToken)}`;
+      await sendVerificationEmail(user.email, verifyUrl);
+    } catch (vErr) {
+      console.error("Failed to dispatch verification email on signup:", vErr);
+    }
+
+    const authUser: AuthUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: false,
+      provider: "credentials",
+    };
+
     const token = await createSession(authUser);
     await setSessionCookie(token);
 
-    return NextResponse.json({ user: authUser }, { status: 201 });
+    return NextResponse.json({ user: authUser, emailVerificationSent: true }, { status: 201 });
   } catch (err) {
-    // Prisma's unique-constraint violation code, thrown when the email
-    // column's @unique index rejects a duplicate — race-safe in a way an
-    // upfront findUnique-then-create check on its own is not (two signups
-    // for the same email arriving concurrently would both pass a prior
-    // existence check; only the DB constraint is authoritative).
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
     }

@@ -31,6 +31,9 @@ export async function createSession(user: AuthUser): Promise<string> {
     email: user.email,
     name: user.name,
     isGuest: user.isGuest ?? false,
+    emailVerified: user.emailVerified ?? false,
+    provider: user.provider ?? "credentials",
+    image: user.image ?? null,
   } satisfies Omit<SessionPayload, "exp">)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
