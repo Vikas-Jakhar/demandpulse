@@ -8,11 +8,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-ink text-canvas hover:bg-ink/90",
-        signal: "bg-signal text-canvas hover:bg-signal/90",
-        outline: "border border-border bg-transparent text-ink hover:bg-surface-raised",
-        ghost: "text-ink-muted hover:bg-surface-raised hover:text-ink",
-        destructive: "bg-bad text-white hover:bg-bad/90",
+        default: "bg-ink text-canvas hover:bg-ink/90 font-medium",
+        signal:
+          "bg-gradient-to-r from-[#FF6A00] to-[#FF9D2E] text-white font-semibold shadow-md shadow-[#FF6A00]/25 hover:shadow-[#FF6A00]/40 hover:brightness-110 active:scale-[0.98] transition-all",
+        outline:
+          "border border-border bg-surface/80 text-ink hover:border-signal/50 hover:bg-surface-raised hover:text-white transition-all",
+        ghost: "text-ink-muted hover:bg-surface-raised hover:text-white transition-colors",
+        destructive: "bg-bad text-white hover:bg-bad/90 font-medium",
       },
       size: {
         default: "h-9 px-4",

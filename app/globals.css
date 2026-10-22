@@ -4,26 +4,53 @@
 
 html {
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
   @apply bg-canvas text-ink antialiased;
+  background-color: #0B0B0D;
+  color: #FFFFFF;
   font-feature-settings: "tnum" 1, "cv11" 1;
 }
 
 ::selection {
-  background-color: #F5A62333;
+  background-color: rgba(255, 106, 0, 0.3);
+  color: #FFFFFF;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #232A34 transparent;
+  scrollbar-color: #26262E transparent;
 }
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+::-webkit-scrollbar-track {
+  background: #0B0B0D;
+}
 ::-webkit-scrollbar-thumb {
-  background-color: #232A34;
+  background-color: #26262E;
   border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #FF6A00;
+}
+
+/* Custom Orange Gradient and Glow Utilities */
+.text-gradient-orange {
+  @apply text-transparent bg-clip-text bg-gradient-to-r from-[#FF6A00] via-[#FF851A] to-[#FF9D2E];
+}
+
+.bg-gradient-orange {
+  @apply bg-gradient-to-r from-[#FF6A00] to-[#FF9D2E];
+}
+
+.shadow-orange-glow {
+  box-shadow: 0 0 30px -5px rgba(255, 106, 0, 0.35);
+}
+
+.shadow-orange-glow-lg {
+  box-shadow: 0 0 50px -5px rgba(255, 106, 0, 0.45);
 }

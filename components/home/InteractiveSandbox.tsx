@@ -7,12 +7,7 @@ import {
   TrendingUp,
   ShieldCheck,
   RotateCcw,
-  AlertCircle,
-  PackageCheck,
-  CheckCircle2,
-  ArrowRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface PresetData {
   id: string;
@@ -69,15 +64,12 @@ export function InteractiveSandbox() {
   const [leadTimeDays, setLeadTimeDays] = useState<number>(selectedPreset.defaultLeadDays);
   const [serviceLevel, setServiceLevel] = useState<number>(selectedPreset.defaultServiceLevel);
 
-  // When switching presets, reset to defaults
   const handleSelectPreset = (p: PresetData) => {
     setActivePresetId(p.id);
     setLeadTimeDays(p.defaultLeadDays);
     setServiceLevel(p.defaultServiceLevel);
   };
 
-  // Convert Service Level % into approximate standard normal Z-score
-  // Approximation for z-score of common service levels
   const zScore = useMemo(() => {
     const sl = serviceLevel / 100;
     if (sl >= 0.995) return 2.576;
@@ -88,9 +80,7 @@ export function InteractiveSandbox() {
     return 1.0;
   }, [serviceLevel]);
 
-  // Compute dynamic inventory metrics
   const safetyStock = useMemo(() => {
-    // SS = Z * sqrt(LeadTime) * std_dev
     return Math.round(zScore * Math.sqrt(leadTimeDays) * selectedPreset.dailyStd);
   }, [zScore, leadTimeDays, selectedPreset.dailyStd]);
 
@@ -102,54 +92,50 @@ export function InteractiveSandbox() {
     return leadTimeDemand + safetyStock;
   }, [leadTimeDemand, safetyStock]);
 
-  const monthlyForecast = useMemo(() => {
-    return Math.round(selectedPreset.dailyMean * 30);
-  }, [selectedPreset.dailyMean]);
-
   const stockoutRisk = useMemo(() => {
     return Math.max(0.1, +(100 - serviceLevel).toFixed(1));
   }, [serviceLevel]);
 
   return (
-    <section id="sandbox" className="relative py-24 bg-surface border-t border-border">
+    <section id="sandbox" className="relative py-24 bg-[#151518] border-t border-[#26262E]">
       {/* Background glow */}
-      <div className="absolute top-1/2 left-1/3 w-[600px] h-[300px] bg-signal/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/3 w-[600px] h-[300px] bg-[#FF6A00]/10 rounded-full blur-[150px] pointer-events-none" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs text-signal font-mono font-medium mb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#26262E] bg-[#0B0B0D] px-3.5 py-1 text-xs text-[#FF6A00] font-mono font-semibold mb-4 shadow-[0_0_12px_rgba(255,106,0,0.15)]">
             <Sliders className="h-3.5 w-3.5" />
             <span>INTERACTIVE CONTROL SIMULATOR</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             Test the Real-Time Inventory & Forecasting Engine
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-ink-muted">
+          <p className="mt-4 text-sm sm:text-base text-[#E2E8F0]">
             Drag the sliders below to see how changes in supplier lead time and required cycle service
             level dynamically recalculate safety stock buffers and reorder points in real time.
           </p>
         </div>
 
         {/* Preset Selector */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-2.5">
           {presets.map((preset) => {
             const isSelected = preset.id === activePresetId;
             return (
               <button
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-xs font-semibold transition-all ${
                   isSelected
-                    ? "bg-canvas border-signal text-ink shadow-md shadow-signal/10"
-                    : "bg-surface-raised border-border/70 text-ink-muted hover:text-ink hover:border-border"
+                    ? "bg-[#0B0B0D] border-[#FF6A00] text-white shadow-lg shadow-[#FF6A00]/20"
+                    : "bg-[#1C1C22] border-[#26262E] text-[#94A3B8] hover:text-white hover:border-[#FF6A00]/40"
                 }`}
               >
                 <span
-                  className={`h-2 w-2 rounded-full ${isSelected ? "bg-signal" : "bg-ink-muted/40"}`}
+                  className={`h-2 w-2 rounded-full ${isSelected ? "bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]" : "bg-[#94A3B8]/40"}`}
                 />
                 <span className="font-semibold">{preset.name}</span>
-                <span className="text-[10px] text-ink-faint font-mono hidden sm:inline">
+                <span className="text-[10px] text-[#94A3B8] font-mono hidden sm:inline">
                   ({preset.category})
                 </span>
               </button>
@@ -158,23 +144,23 @@ export function InteractiveSandbox() {
         </div>
 
         {/* Simulator Box */}
-        <div className="mt-8 rounded-2xl border border-border bg-canvas shadow-2xl shadow-black/50 overflow-hidden">
+        <div className="mt-8 rounded-2xl border border-[#26262E] bg-[#0B0B0D] shadow-2xl shadow-black/80 overflow-hidden">
           {/* Simulator Bar */}
-          <div className="flex flex-wrap items-center justify-between px-6 py-3 bg-surface-raised border-b border-border text-xs font-mono">
+          <div className="flex flex-wrap items-center justify-between px-6 py-3 bg-[#1C1C22] border-b border-[#26262E] text-xs font-mono">
             <div className="flex items-center gap-2">
-              <span className="text-signal font-bold">SIMULATION ACTIVE</span>
-              <span className="text-border">|</span>
-              <span className="text-ink-muted">Champion: {selectedPreset.championModel}</span>
+              <span className="text-[#FF6A00] font-bold">SIMULATION ACTIVE</span>
+              <span className="text-[#26262E]">|</span>
+              <span className="text-white">Champion: {selectedPreset.championModel}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-good">WAPE: {selectedPreset.wape}%</span>
-              <span className="text-border">|</span>
+              <span className="text-[#10B981] font-semibold">WAPE: {selectedPreset.wape}%</span>
+              <span className="text-[#26262E]">|</span>
               <button
                 onClick={() => {
                   setLeadTimeDays(selectedPreset.defaultLeadDays);
                   setServiceLevel(selectedPreset.defaultServiceLevel);
                 }}
-                className="flex items-center gap-1 text-ink-muted hover:text-ink transition-colors"
+                className="flex items-center gap-1 text-[#94A3B8] hover:text-[#FF6A00] transition-colors"
               >
                 <RotateCcw className="h-3 w-3" /> Reset
               </button>
@@ -185,13 +171,13 @@ export function InteractiveSandbox() {
             {/* Left Controls (Sliders) */}
             <div className="lg:col-span-5 space-y-6">
               {/* Slider 1: Service Level */}
-              <div className="p-4 rounded-xl bg-surface border border-border space-y-3">
+              <div className="p-4 rounded-xl bg-[#151518] border border-[#26262E] space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-ink flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-signal" />
+                  <label className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-[#FF6A00]" />
                     <span>Target Cycle Service Level</span>
                   </label>
-                  <span className="font-mono text-sm font-bold text-signal">
+                  <span className="font-mono text-sm font-bold text-[#FF6A00]">
                     {serviceLevel.toFixed(1)}%
                   </span>
                 </div>
@@ -202,9 +188,9 @@ export function InteractiveSandbox() {
                   step="0.5"
                   value={serviceLevel}
                   onChange={(e) => setServiceLevel(parseFloat(e.target.value))}
-                  className="w-full accent-[#F5A623] cursor-pointer"
+                  className="w-full accent-[#FF6A00] cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-ink-faint font-mono">
+                <div className="flex justify-between text-[10px] text-[#94A3B8] font-mono">
                   <span>90% (Low Buffer)</span>
                   <span>Z = {zScore.toFixed(3)}</span>
                   <span>99.5% (Zero Stockout)</span>
@@ -212,13 +198,13 @@ export function InteractiveSandbox() {
               </div>
 
               {/* Slider 2: Supplier Lead Time */}
-              <div className="p-4 rounded-xl bg-surface border border-border space-y-3">
+              <div className="p-4 rounded-xl bg-[#151518] border border-[#26262E] space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-ink flex items-center gap-1.5">
-                    <TrendingUp className="h-4 w-4 text-actual" />
+                  <label className="text-xs font-semibold text-white flex items-center gap-1.5">
+                    <TrendingUp className="h-4 w-4 text-[#38BDF8]" />
                     <span>Supplier Lead Time</span>
                   </label>
-                  <span className="font-mono text-sm font-bold text-actual">
+                  <span className="font-mono text-sm font-bold text-[#38BDF8]">
                     {leadTimeDays} Days
                   </span>
                 </div>
@@ -229,9 +215,9 @@ export function InteractiveSandbox() {
                   step="1"
                   value={leadTimeDays}
                   onChange={(e) => setLeadTimeDays(parseInt(e.target.value))}
-                  className="w-full accent-[#4FD1C5] cursor-pointer"
+                  className="w-full accent-[#38BDF8] cursor-pointer"
                 />
-                <div className="flex justify-between text-[10px] text-ink-faint font-mono">
+                <div className="flex justify-between text-[10px] text-[#94A3B8] font-mono">
                   <span>5 Days (Local)</span>
                   <span>Transit Variance √L = {Math.sqrt(leadTimeDays).toFixed(2)}</span>
                   <span>35 Days (Overseas)</span>
@@ -239,14 +225,14 @@ export function InteractiveSandbox() {
               </div>
 
               {/* Mathematical formula badge */}
-              <div className="p-3.5 rounded-lg bg-surface-raised border border-border/80 text-[11px] font-mono text-ink-muted space-y-1">
-                <div className="text-ink font-semibold flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-signal" /> Mathematical Model Formulation:
+              <div className="p-3.5 rounded-lg bg-[#1C1C22] border border-[#26262E] text-[11px] font-mono text-[#E2E8F0] space-y-1">
+                <div className="text-white font-bold flex items-center gap-1">
+                  <Sparkles className="h-3 w-3 text-[#FF6A00]" /> Mathematical Model Formulation:
                 </div>
-                <div className="text-ink-faint pl-1">
+                <div className="text-[#94A3B8] pl-1">
                   Safety Stock = Z ({zScore.toFixed(2)}) × √Lead ({Math.sqrt(leadTimeDays).toFixed(2)}) × σ ({selectedPreset.dailyStd})
                 </div>
-                <div className="text-signal font-bold pl-1">
+                <div className="text-[#FF6A00] font-bold pl-1">
                   = {safetyStock.toLocaleString()} units
                 </div>
               </div>
@@ -256,50 +242,50 @@ export function InteractiveSandbox() {
             <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
               {/* Computed Metric Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3.5 rounded-lg bg-surface border border-border">
-                  <div className="text-[10px] text-ink-muted font-mono uppercase">Safety Buffer</div>
-                  <div className="text-2xl font-bold font-mono text-good mt-1">
+                <div className="p-3.5 rounded-lg bg-[#151518] border border-[#26262E]">
+                  <div className="text-[10px] text-[#94A3B8] font-mono uppercase">Safety Buffer</div>
+                  <div className="text-2xl font-black font-mono text-[#10B981] mt-1">
                     +{safetyStock.toLocaleString()}
                   </div>
-                  <div className="text-[10px] text-ink-faint font-mono mt-0.5">
+                  <div className="text-[10px] text-[#94A3B8] font-mono mt-0.5">
                     Absorbs demand spikes
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-lg bg-surface border border-border">
-                  <div className="text-[10px] text-ink-muted font-mono uppercase">Reorder Point (ROP)</div>
-                  <div className="text-2xl font-bold font-mono text-warn mt-1">
+                <div className="p-3.5 rounded-lg bg-[#151518] border border-[#26262E]">
+                  <div className="text-[10px] text-[#94A3B8] font-mono uppercase">Reorder Point (ROP)</div>
+                  <div className="text-2xl font-black font-mono text-[#FF9D2E] mt-1">
                     {reorderPoint.toLocaleString()}
                   </div>
-                  <div className="text-[10px] text-ink-faint font-mono mt-0.5">
-                    Order when inventory hits this
+                  <div className="text-[10px] text-[#94A3B8] font-mono mt-0.5">
+                    Order when stock hits this
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-lg bg-surface border border-border col-span-2 sm:col-span-1">
-                  <div className="text-[10px] text-ink-muted font-mono uppercase">Stockout Risk</div>
-                  <div className="text-2xl font-bold font-mono text-ink mt-1">
+                <div className="p-3.5 rounded-lg bg-[#151518] border border-[#26262E] col-span-2 sm:col-span-1">
+                  <div className="text-[10px] text-[#94A3B8] font-mono uppercase">Stockout Risk</div>
+                  <div className="text-2xl font-black font-mono text-white mt-1">
                     {stockoutRisk}%
                   </div>
-                  <div className="text-[10px] text-good font-mono mt-0.5">
+                  <div className="text-[10px] text-[#10B981] font-mono mt-0.5">
                     Protected by {serviceLevel}% SL
                   </div>
                 </div>
               </div>
 
               {/* Dynamic Visual Breakdown Bar */}
-              <div className="p-4 rounded-xl bg-surface border border-border space-y-3">
+              <div className="p-4 rounded-xl bg-[#151518] border border-[#26262E] space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="font-medium text-ink">Total Reorder Inventory Breakdown</span>
-                  <span className="font-mono text-ink-muted text-[11px]">
+                  <span className="font-semibold text-white">Total Reorder Inventory Breakdown</span>
+                  <span className="font-mono text-[#94A3B8] text-[11px]">
                     Total ROP: {reorderPoint.toLocaleString()} units
                   </span>
                 </div>
 
                 {/* Stacked bar visualization */}
-                <div className="w-full h-7 rounded-md bg-canvas border border-border overflow-hidden flex text-[10px] font-mono font-bold">
+                <div className="w-full h-8 rounded-md bg-[#0B0B0D] border border-[#26262E] overflow-hidden flex text-[10px] font-mono font-bold">
                   <div
-                    className="bg-actual/80 text-canvas flex items-center justify-center transition-all duration-300"
+                    className="bg-[#38BDF8] text-[#0B0B0D] flex items-center justify-center transition-all duration-300 font-extrabold"
                     style={{
                       width: `${(leadTimeDemand / reorderPoint) * 100}%`,
                     }}
@@ -308,7 +294,7 @@ export function InteractiveSandbox() {
                     Expected Demand ({Math.round((leadTimeDemand / reorderPoint) * 100)}%)
                   </div>
                   <div
-                    className="bg-signal text-canvas flex items-center justify-center transition-all duration-300"
+                    className="bg-gradient-to-r from-[#FF6A00] to-[#FF9D2E] text-white flex items-center justify-center transition-all duration-300 font-extrabold shadow-sm"
                     style={{
                       width: `${(safetyStock / reorderPoint) * 100}%`,
                     }}
@@ -318,21 +304,21 @@ export function InteractiveSandbox() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-ink-muted font-mono">
-                  <div className="flex items-center gap-1.5 text-actual">
-                    <span className="h-2 w-2 rounded-full bg-actual" /> Lead Time Demand: {leadTimeDemand.toLocaleString()} u
+                <div className="flex items-center justify-between text-[11px] text-[#E2E8F0] font-mono">
+                  <div className="flex items-center gap-1.5 text-[#38BDF8]">
+                    <span className="h-2 w-2 rounded-full bg-[#38BDF8]" /> Lead Time Demand: {leadTimeDemand.toLocaleString()} u
                   </div>
-                  <div className="flex items-center gap-1.5 text-signal">
-                    <span className="h-2 w-2 rounded-full bg-signal" /> Safety Buffer: +{safetyStock.toLocaleString()} u
+                  <div className="flex items-center gap-1.5 text-[#FF6A00]">
+                    <span className="h-2 w-2 rounded-full bg-[#FF6A00]" /> Safety Buffer: +{safetyStock.toLocaleString()} u
                   </div>
                 </div>
               </div>
 
               {/* Copilot insight for this state */}
-              <div className="p-3.5 rounded-lg bg-surface-raised border border-signal/30 flex items-center justify-between">
+              <div className="p-3.5 rounded-lg bg-[#1C1C22] border border-[#FF6A00]/40 flex items-center justify-between shadow-[0_0_15px_rgba(255,106,0,0.1)]">
                 <div className="flex items-center gap-2.5">
-                  <Sparkles className="h-4 w-4 text-signal shrink-0" />
-                  <p className="text-xs text-ink">
+                  <Sparkles className="h-4 w-4 text-[#FF6A00] shrink-0" />
+                  <p className="text-xs text-white">
                     At a <strong>{serviceLevel}% service target</strong> with a <strong>{leadTimeDays}-day supplier turnaround</strong>, maintaining <strong>{safetyStock.toLocaleString()} safety buffer units</strong> keeps stockout probability under <strong>{stockoutRisk}%</strong>.
                   </p>
                 </div>

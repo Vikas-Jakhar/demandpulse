@@ -8,8 +8,6 @@ import {
   Sliders,
   Lock,
   Trophy,
-  ArrowUpRight,
-  DollarSign,
   PackageCheck,
   Check,
 } from "lucide-react";
@@ -21,7 +19,6 @@ interface BenefitCard {
   description: string;
   impacts: string[];
   icon: React.ElementType;
-  accent: string;
 }
 
 export function ProductBenefits() {
@@ -38,7 +35,6 @@ export function ProductBenefits() {
         "Prevents end-of-lifecycle inventory write-downs",
       ],
       icon: TrendingDown,
-      accent: "#4FD1C5",
     },
     {
       title: "Prevent Revenue-Killing Stockouts",
@@ -52,7 +48,6 @@ export function ProductBenefits() {
         "Protects customer lifetime value (LTV)",
       ],
       icon: PackageCheck,
-      accent: "#3FBF7F",
     },
     {
       title: "Single Champion Clarity",
@@ -66,7 +61,6 @@ export function ProductBenefits() {
         "Diagnostics drawer remains accessible for deep statistical inspection",
       ],
       icon: Trophy,
-      accent: "#F5A623",
     },
     {
       title: "Instant Time-to-Value",
@@ -80,7 +74,6 @@ export function ProductBenefits() {
         "Supports multi-SKU and multi-location datasets seamlessly",
       ],
       icon: Zap,
-      accent: "#F5A623",
     },
     {
       title: "Scenario Stress-Testing on the Fly",
@@ -94,7 +87,6 @@ export function ProductBenefits() {
         "Model promotional upside without manual recalculation",
       ],
       icon: Sliders,
-      accent: "#4FD1C5",
     },
     {
       title: "Control-Room Security & Compliance",
@@ -108,26 +100,25 @@ export function ProductBenefits() {
         "Stateless sessions resist token theft and cross-site scripting",
       ],
       icon: Lock,
-      accent: "#3FBF7F",
     },
   ];
 
   return (
-    <section id="benefits" className="relative py-24 bg-surface border-t border-border">
+    <section id="benefits" className="relative py-24 bg-[#151518] border-t border-[#26262E]">
       {/* Background glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-actual/5 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-[#FF6A00]/10 rounded-full blur-[160px] pointer-events-none" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Heading */}
         <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs text-actual font-mono font-medium mb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#26262E] bg-[#0B0B0D] px-3.5 py-1 text-xs text-[#FF6A00] font-mono font-semibold mb-4 shadow-[0_0_12px_rgba(255,106,0,0.15)]">
             <ShieldCheck className="h-3.5 w-3.5" />
             <span>BUSINESS IMPACT & ROI</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             Quantifiable ROI for Supply-Chain & Finance Teams
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-ink-muted">
+          <p className="mt-4 text-sm sm:text-base text-[#E2E8F0]">
             DemandPulse connects statistical rigor directly to your balance sheet. Here is how our
             customers protect margins and accelerate working capital velocity.
           </p>
@@ -140,45 +131,39 @@ export function ProductBenefits() {
             return (
               <div
                 key={idx}
-                className="group relative flex flex-col justify-between rounded-xl bg-canvas p-6 border border-border hover:border-border-raised hover:border-signal/40 transition-all duration-300 shadow-panel"
+                className="group relative flex flex-col justify-between rounded-xl bg-[#0B0B0D] p-6 border border-[#26262E] hover:border-[#FF6A00]/50 hover:shadow-[0_0_25px_rgba(255,106,0,0.15)] transition-all duration-300"
               >
                 <div>
                   {/* Top Header */}
                   <div className="flex items-center justify-between mb-5">
-                    <div
-                      className="p-2 rounded-lg bg-surface-raised border border-border group-hover:border-signal/50 transition-colors"
-                      style={{ color: benefit.accent }}
-                    >
+                    <div className="p-2.5 rounded-lg bg-[#151518] border border-[#26262E] text-[#FF6A00] group-hover:border-[#FF6A00]/50 transition-colors shadow-sm">
                       <Icon className="h-5 w-5" />
                     </div>
 
                     <div className="text-right">
-                      <div
-                        className="text-xl font-bold font-mono tracking-tight"
-                        style={{ color: benefit.accent }}
-                      >
+                      <div className="text-2xl font-black font-mono tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-[#FF6A00] to-[#FF9D2E]">
                         {benefit.metric}
                       </div>
-                      <div className="text-[10px] text-ink-faint font-mono uppercase">
+                      <div className="text-[10px] text-[#94A3B8] font-mono uppercase">
                         {benefit.metricLabel}
                       </div>
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-semibold text-ink group-hover:text-signal transition-colors">
+                  <h3 className="text-lg font-bold text-white group-hover:text-[#FF6A00] transition-colors">
                     {benefit.title}
                   </h3>
 
-                  <p className="mt-2.5 text-xs text-ink-muted leading-relaxed">
+                  <p className="mt-2.5 text-xs text-[#E2E8F0] leading-relaxed">
                     {benefit.description}
                   </p>
 
                   {/* Impact checklist */}
-                  <div className="mt-5 space-y-2 border-t border-border/50 pt-4">
+                  <div className="mt-5 space-y-2 border-t border-[#26262E] pt-4">
                     {benefit.impacts.map((impact, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[11px] text-ink-faint">
-                        <Check className="h-3.5 w-3.5 text-good shrink-0 mt-0.5" />
-                        <span className="text-ink-muted">{impact}</span>
+                      <div key={i} className="flex items-start gap-2 text-[11px]">
+                        <Check className="h-3.5 w-3.5 text-[#10B981] shrink-0 mt-0.5" />
+                        <span className="text-[#E2E8F0]">{impact}</span>
                       </div>
                     ))}
                   </div>

@@ -43,17 +43,17 @@ export function FAQSection() {
   };
 
   return (
-    <section id="faq" className="relative py-24 bg-surface border-t border-border">
+    <section id="faq" className="relative py-24 bg-[#151518] border-t border-[#26262E]">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-raised px-3 py-1 text-xs text-signal font-mono font-medium mb-4">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#26262E] bg-[#0B0B0D] px-3.5 py-1 text-xs text-[#FF6A00] font-mono font-semibold mb-4 shadow-[0_0_12px_rgba(255,106,0,0.15)]">
             <HelpCircle className="h-3.5 w-3.5" />
             <span>KNOWLEDGE BASE</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             Frequently Asked Questions
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-ink-muted">
+          <p className="mt-4 text-sm sm:text-base text-[#E2E8F0]">
             Everything you need to know about DemandPulse's forecasting engine, data privacy, and
             deployment.
           </p>
@@ -65,21 +65,21 @@ export function FAQSection() {
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-border bg-canvas overflow-hidden transition-colors"
+                className="rounded-xl border border-[#26262E] bg-[#0B0B0D] overflow-hidden transition-all duration-200"
               >
                 <button
                   onClick={() => toggle(idx)}
-                  className="w-full flex items-center justify-between p-5 text-left text-sm font-semibold text-ink hover:text-signal transition-colors"
+                  className="w-full flex items-center justify-between p-5 text-left text-sm font-semibold text-white hover:text-[#FF6A00] transition-colors"
                 >
                   <span>{faq.q}</span>
                   {isOpen ? (
-                    <ChevronUp className="h-4 w-4 text-signal shrink-0 ml-4" />
+                    <ChevronUp className="h-4 w-4 text-[#FF6A00] shrink-0 ml-4" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-ink-muted shrink-0 ml-4" />
+                    <ChevronDown className="h-4 w-4 text-[#94A3B8] shrink-0 ml-4" />
                   )}
                 </button>
                 {isOpen && (
-                  <div className="px-5 pb-5 text-xs text-ink-muted leading-relaxed border-t border-border/40 pt-3">
+                  <div className="px-5 pb-5 text-xs text-[#E2E8F0] leading-relaxed border-t border-[#1E1E26] pt-3.5 font-normal">
                     {faq.a}
                   </div>
                 )}
